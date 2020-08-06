@@ -72,13 +72,12 @@ for i in menu_sec_categ:
     item = i.find('a').get('href')
     if item[0:2] == '//':
         item = 'https:' + item
-    cur.execute('INSERT OR IGNORE INTO Pages (url, html, new_date) VALUES ( ?, NULL, ? )', (item, DATE))
-    conn.commit()
-    
     new_url.add(item)
+    cur.execute('INSERT OR IGNORE INTO Pages (url, html, new_date) VALUES ( ?, NULL, ? )', (item, DATE))
     count += 1
+conn.commit()
     # print('Second category', item)
-print('COUNT:', count)
+# print('COUNT:', count)
 
 
 # Find third category of the catalog
@@ -93,12 +92,13 @@ for i in menu_third_categ:
         title = row.find('span').contents[0]
         if item[0:2] == '//':
             item = 'https:' + item
-        cur.execute('INSERT OR IGNORE INTO Pages (url, html, new_date) VALUES ( ?, NULL, ? )', (item, DATE))
-        conn.commit()
         new_url.add(item)
+        cur.execute('INSERT OR IGNORE INTO Pages (url, html, new_date) VALUES ( ?, NULL, ? )', (item, DATE))
         count += 1
+conn.commit()
         # print(item, title)
-print('COUNT:', count)
+# print('COUNT:', count)
+
 
 # count = 0
 # for i in new_url:
@@ -146,14 +146,39 @@ while True:
         print('')
         print('Program interrupted by user...')
 
+    pagination = soup.find_all('a', {'class': 'a-text'})
+    print("PAGE PAGINATION", pagination)
+    if pagination != []:
+        try:
+            lnpgn = int(pagination[-2].get_text())
+        except IndexError as err:
+            print("Page without pagination, just part of tree. Error:", err)
+            continue
+        frst = soup.find('a', {'class': 'a-text'}).get('href')
+        for i in range(1, lnpgn + 1):
+            pagurl = 'http:' + frst + f'pages_{i}_15.html'
+            cur.execute('INSERT OR IGNORE INTO Pages (url, html, new_date) VALUES ( ?, NULL, ? )', (pagurl, DATE))
+            conn.commit()
 
-
+            cur.execute('SELECT id FROM Pages WHERE url=? LIMIT 1', (pagurl,))
+            try:
+                row = cur.fetchone()
+                toid = row[0]
+            except:
+                print('Could not retrieve id')
+                continue
+            # print fromid, toid
+            cur.execute('INSERT OR IGNORE INTO Links (from_id, to_id) VALUES ( ?, ? )', (fromid, toid))
+            conn.commit()
+            print(pagurl)
 
     # print(soup.prettify())
     items_url = soup.find_all('div', {'class': 'ccitem2'})
     count = 0
     for item in items_url:
         itemu = item.a.get('href')
+        if itemu[0:2] == '//':
+            itemu = 'https:' + itemu
         print(itemu)
         cur.execute('INSERT OR IGNORE INTO Pages (url, html, new_date) VALUES ( ?, NULL, ? )', (itemu, DATE))
         conn.commit()
@@ -169,7 +194,7 @@ while True:
         cur.execute('INSERT OR IGNORE INTO Links (from_id, to_id) VALUES ( ?, ? )', (fromid, toid))
         conn.commit()
         count += 1
-        print(fromid, toid)
+        # print(fromid, toid)
     print("==============While end", setcount,'/', len(new_url))
 
 conn.commit()
